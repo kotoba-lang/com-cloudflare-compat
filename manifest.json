@@ -1,0 +1,830 @@
+{
+  "schemaVersion": "1.0",
+  "handle": "cloudflare-compat",
+  "did": "did:web:etzhayyim.com:actor:cloudflare-compat",
+  "kind": "compat",
+  "title": "cloudflare clean-room actor",
+  "description": "Clean-room, API-compatible cloud infrastructure (IaaS) actor (cloudflare); runs browser-local on IPFS + kotoba-WASM.",
+  "wasmCid": "bafkreigu3r5x6vudgbpypd6r4jdv4qmffvr5ibjnptt37vm2w5v3hqftae",
+  "wasmProvenance": "built-rust-raw",
+  "runtime": "kotoba-wasm",
+  "exec": "browser-local|donated-mesh",
+  "ipfs": "ipfs://bafkreigu3r5x6vudgbpypd6r4jdv4qmffvr5ibjnptt37vm2w5v3hqftae",
+  "schema": "schema/cloudflare.kotoba",
+  "tier": "L5",
+  "verified": {
+    "source": "https://developers.cloudflare.com/api",
+    "verifiedAt": "2026-06-08",
+    "resources": [
+      "Zone",
+      "DNSRecord"
+    ],
+    "enums": {
+      "Zone": {
+        "status": [
+          "initializing",
+          "pending",
+          "active",
+          "moved"
+        ],
+        "type": [
+          "full",
+          "partial",
+          "secondary",
+          "internal"
+        ]
+      },
+      "DNSRecord": {
+        "type": [
+          "A",
+          "AAAA",
+          "CNAME",
+          "TXT",
+          "MX",
+          "NS",
+          "SRV",
+          "CAA",
+          "SOA",
+          "DKIM",
+          "SPF",
+          "DMARC",
+          "SVCB",
+          "HTTPS",
+          "PTR",
+          "DS",
+          "DNSKEY",
+          "URI",
+          "NAPTR",
+          "SSHFP",
+          "TLSA",
+          "SMIMEA",
+          "CERT"
+        ]
+      }
+    }
+  },
+  "entities": [
+    "Zone",
+    "DNSRecord",
+    "WorkerScript",
+    "Certificate",
+    "PageRule",
+    "LoadBalancer"
+  ],
+  "adr": [
+    "260607",
+    "2606014500",
+    "2606013800",
+    "2606036000"
+  ],
+  "capabilities": {
+    "api": {
+      "type": "rest",
+      "runtime": "kotoba-wasm",
+      "endpointCount": 30,
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/v1/zones",
+          "op": "create Zone"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/zones",
+          "op": "list Zone"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/zones/{id}",
+          "op": "get Zone"
+        },
+        {
+          "method": "PATCH",
+          "path": "/v1/zones/{id}",
+          "op": "update Zone"
+        },
+        {
+          "method": "DELETE",
+          "path": "/v1/zones/{id}",
+          "op": "delete Zone"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/dnsrecords",
+          "op": "create DNSRecord"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/dnsrecords",
+          "op": "list DNSRecord"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/dnsrecords/{id}",
+          "op": "get DNSRecord"
+        },
+        {
+          "method": "PATCH",
+          "path": "/v1/dnsrecords/{id}",
+          "op": "update DNSRecord"
+        },
+        {
+          "method": "DELETE",
+          "path": "/v1/dnsrecords/{id}",
+          "op": "delete DNSRecord"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/workerscripts",
+          "op": "create WorkerScript"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/workerscripts",
+          "op": "list WorkerScript"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/workerscripts/{id}",
+          "op": "get WorkerScript"
+        },
+        {
+          "method": "PATCH",
+          "path": "/v1/workerscripts/{id}",
+          "op": "update WorkerScript"
+        },
+        {
+          "method": "DELETE",
+          "path": "/v1/workerscripts/{id}",
+          "op": "delete WorkerScript"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/certificates",
+          "op": "create Certificate"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/certificates",
+          "op": "list Certificate"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/certificates/{id}",
+          "op": "get Certificate"
+        },
+        {
+          "method": "PATCH",
+          "path": "/v1/certificates/{id}",
+          "op": "update Certificate"
+        },
+        {
+          "method": "DELETE",
+          "path": "/v1/certificates/{id}",
+          "op": "delete Certificate"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/pagerules",
+          "op": "create PageRule"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/pagerules",
+          "op": "list PageRule"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/pagerules/{id}",
+          "op": "get PageRule"
+        },
+        {
+          "method": "PATCH",
+          "path": "/v1/pagerules/{id}",
+          "op": "update PageRule"
+        },
+        {
+          "method": "DELETE",
+          "path": "/v1/pagerules/{id}",
+          "op": "delete PageRule"
+        },
+        {
+          "method": "POST",
+          "path": "/v1/loadbalancers",
+          "op": "create LoadBalancer"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/loadbalancers",
+          "op": "list LoadBalancer"
+        },
+        {
+          "method": "GET",
+          "path": "/v1/loadbalancers/{id}",
+          "op": "get LoadBalancer"
+        },
+        {
+          "method": "PATCH",
+          "path": "/v1/loadbalancers/{id}",
+          "op": "update LoadBalancer"
+        },
+        {
+          "method": "DELETE",
+          "path": "/v1/loadbalancers/{id}",
+          "op": "delete LoadBalancer"
+        }
+      ],
+      "features": {
+        "pagination": true,
+        "filtering": true,
+        "relationExpansion": true,
+        "strictValidation": true,
+        "contractTest": true
+      },
+      "health": "/healthz"
+    },
+    "supplychain": {
+      "type": "cyclonedx-sbom",
+      "runtime": "kotoba-wasm",
+      "sbom": "manifest:supplychain.sbom",
+      "sbomData": {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "metadata": {
+          "component": {
+            "type": "application",
+            "name": "cloudflare-compat",
+            "purl": "pkg:etzhayyim/cloudflare-compat"
+          }
+        },
+        "components": [
+          {
+            "type": "library",
+            "name": "kotoba",
+            "scope": "required",
+            "purl": "pkg:etzhayyim/kotoba"
+          },
+          {
+            "type": "library",
+            "name": "kotodama-wasm",
+            "scope": "required",
+            "purl": "pkg:etzhayyim/kotodama-wasm"
+          },
+          {
+            "type": "library",
+            "name": "datomic-client",
+            "scope": "required",
+            "purl": "pkg:etzhayyim/datomic-client"
+          }
+        ]
+      },
+      "adr": [
+        "2606036000"
+      ]
+    },
+    "socialpost": {
+      "type": "datom-event-feed",
+      "runtime": "kotoba-wasm",
+      "lexicon": "app.bsky.feed.post",
+      "source": "cloudflare.* Datom events",
+      "mode": "dry-run",
+      "gate": "G8"
+    },
+    "mcp": {
+      "type": "model-context-protocol",
+      "runtime": "kotoba-wasm",
+      "transport": "ipfs+kotoba-wasm",
+      "toolCount": 30,
+      "tools": [
+        {
+          "name": "create_zone",
+          "description": "Create a Zone.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "paused": {
+                "type": "boolean"
+              },
+              "developmentMode": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "status"
+            ]
+          }
+        },
+        {
+          "name": "list_zones",
+          "description": "List Zones.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        {
+          "name": "get_zone",
+          "description": "Get a Zone by id.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "update_zone",
+          "description": "Update a Zone.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "paused": {
+                "type": "boolean"
+              },
+              "developmentMode": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "delete_zone",
+          "description": "Delete a Zone.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "create_d_n_s_record",
+          "description": "Create a DNSRecord.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              },
+              "ttl": {
+                "type": "integer"
+              },
+              "proxied": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "type"
+            ]
+          }
+        },
+        {
+          "name": "list_d_n_s_records",
+          "description": "List DNSRecords.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        {
+          "name": "get_d_n_s_record",
+          "description": "Get a DNSRecord by id.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "update_d_n_s_record",
+          "description": "Update a DNSRecord.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              },
+              "ttl": {
+                "type": "integer"
+              },
+              "proxied": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "delete_d_n_s_record",
+          "description": "Delete a DNSRecord.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "create_worker_script",
+          "description": "Create a WorkerScript.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "usageModel": {
+                "type": "string"
+              },
+              "createdOn": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "usageModel"
+            ]
+          }
+        },
+        {
+          "name": "list_worker_scripts",
+          "description": "List WorkerScripts.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        {
+          "name": "get_worker_script",
+          "description": "Get a WorkerScript by id.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "update_worker_script",
+          "description": "Update a WorkerScript.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "usageModel": {
+                "type": "string"
+              },
+              "createdOn": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "delete_worker_script",
+          "description": "Delete a WorkerScript.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "create_certificate",
+          "description": "Create a Certificate.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "hosts": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "hosts",
+              "status"
+            ]
+          }
+        },
+        {
+          "name": "list_certificates",
+          "description": "List Certificates.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        {
+          "name": "get_certificate",
+          "description": "Get a Certificate by id.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "update_certificate",
+          "description": "Update a Certificate.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "hosts": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "delete_certificate",
+          "description": "Delete a Certificate.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "create_page_rule",
+          "description": "Create a PageRule.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "targetUrl": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "priority": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "targetUrl",
+              "status"
+            ]
+          }
+        },
+        {
+          "name": "list_page_rules",
+          "description": "List PageRules.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        {
+          "name": "get_page_rule",
+          "description": "Get a PageRule by id.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "update_page_rule",
+          "description": "Update a PageRule.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "targetUrl": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "priority": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "delete_page_rule",
+          "description": "Delete a PageRule.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "create_load_balancer",
+          "description": "Create a LoadBalancer.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "proxied": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "enabled"
+            ]
+          }
+        },
+        {
+          "name": "list_load_balancers",
+          "description": "List LoadBalancers.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {}
+          }
+        },
+        {
+          "name": "get_load_balancer",
+          "description": "Get a LoadBalancer by id.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "update_load_balancer",
+          "description": "Update a LoadBalancer.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "proxied": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        },
+        {
+          "name": "delete_load_balancer",
+          "description": "Delete a LoadBalancer.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
