@@ -1,5 +1,10 @@
-{:paths ["src"]
- :deps {org.clojure/clojure {:mvn/version "1.11.1"}}
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        ;; W6 product-shell oracle authority: execute precompiled pure KIR.
+        ;; Compiler stays :test-only.
+        io.github.kotoba-lang/kotoba-kir
+        {:git/url "https://github.com/kotoba-lang/kotoba-kir.git"
+         :git/sha "7ad08c4e3e47c8009198d0e77e86bf8c9981cfb7"}}
  :aliases
  {:test {:extra-paths ["test"]
          ;; kotoba-lang/compiler is TEST-ONLY for the W6 pure oracle
@@ -13,9 +18,20 @@
                       {:git/tag "v0.5.1" :git/sha "dfb30dd"}
                       io.github.kotoba-lang/compiler
                       {:git/url "https://github.com/kotoba-lang/compiler.git"
-                       :git/sha "c2c8693ec5a1288ecbc882f16518ec81cb6b70d7"}}
+                       :git/sha "f685d1535e5fdab49b7f226d83a200c1b09f686e"}}
          :main-opts ["-m" "cognitect.test-runner"]
          :exec-fn cognitect.test-runner.api/test}
+
+  :oracle-gen {:extra-paths ["test"]
+               :override-deps
+               {io.github.kotoba-lang/abi
+                {:git/url "https://github.com/kotoba-lang/abi.git"
+                 :git/sha "34415ce9bf2b8d37d5bc8259ba7e00f5d091eb44"}}
+               :extra-deps {io.github.kotoba-lang/compiler
+                            {:git/url "https://github.com/kotoba-lang/compiler.git"
+                             :git/sha "f685d1535e5fdab49b7f226d83a200c1b09f686e"}}
+               :main-opts ["-m" "cloudflare.kotoba-oracle-gen"]}
+
   ;; clj-kondo as a Clojars lib (no Homebrew/system install needed).
   :lint {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
          :main-opts ["-m" "clj-kondo.main" "--lint" "src" "test"

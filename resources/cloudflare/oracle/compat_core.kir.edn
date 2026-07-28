@@ -1,0 +1,272 @@
+{:format :kotoba.kir/v4,
+ :signature nil,
+ :functions
+ [{:name ns-prefix,
+   :params [],
+   :result :string,
+   :effects #{},
+   :body "cloudflare",
+   :param-types []}
+  {:name tier,
+   :params [],
+   :result :string,
+   :effects #{},
+   :body "L5",
+   :param-types []}
+  {:name default-limit,
+   :params [],
+   :result :i64,
+   :effects #{},
+   :body 20,
+   :param-types []}
+  {:name max-limit,
+   :params [],
+   :result :i64,
+   :effects #{},
+   :body 100,
+   :param-types []}
+  {:name health-actor,
+   :params [],
+   :result :string,
+   :effects #{},
+   :body "cloudflare-compat",
+   :param-types []}
+  {:name create-status,
+   :params [],
+   :result :i64,
+   :effects #{},
+   :body 201,
+   :param-types []}
+  {:name ok-status,
+   :params [],
+   :result :i64,
+   :effects #{},
+   :body 200,
+   :param-types []}
+  {:name bad-request-status,
+   :params [],
+   :result :i64,
+   :effects #{},
+   :body 400,
+   :param-types []}
+  {:name not-found-status,
+   :params [],
+   :result :i64,
+   :effects #{},
+   :body 404,
+   :param-types []}
+  {:name ws?,
+   :params [c],
+   :result :i64,
+   :effects #{},
+   :body
+   (if
+    (string=? c " ")
+    1
+    (if
+     (string=? c "\n")
+     1
+     (if (string=? c "\t") 1 (if (string=? c "\r") 1 0)))),
+   :param-types [:string]}
+  {:name blank?,
+   :params [s],
+   :result :i64,
+   :effects #{},
+   :body
+   (let
+    [n (string-byte-length s)]
+    (if
+     (= n 0)
+     1
+     (if
+      (= (ws? (string-substring s 0 1)) 1)
+      (blank? (string-substring s 1 n))
+      0))),
+   :param-types [:string]}
+  {:name trim,
+   :params [s],
+   :result :string,
+   :effects #{},
+   :body
+   (let
+    [n (string-byte-length s)]
+    (if
+     (= n 0)
+     s
+     (if
+      (= (ws? (string-substring s 0 1)) 1)
+      (trim (string-substring s 1 n))
+      (if
+       (= (ws? (string-substring s (- n 1) n)) 1)
+       (trim (string-substring s 0 (- n 1)))
+       s)))),
+   :param-types [:string]}
+  {:name digit?,
+   :params [c],
+   :result :i64,
+   :effects #{},
+   :body (if (string-contains? "0123456789" c) 1 0),
+   :param-types [:string]}
+  {:name digit-val,
+   :params [c],
+   :result :i64,
+   :effects #{},
+   :body
+   (if
+    (string=? c "0")
+    0
+    (if
+     (string=? c "1")
+     1
+     (if
+      (string=? c "2")
+      2
+      (if
+       (string=? c "3")
+       3
+       (if
+        (string=? c "4")
+        4
+        (if
+         (string=? c "5")
+         5
+         (if
+          (string=? c "6")
+          6
+          (if (string=? c "7") 7 (if (string=? c "8") 8 9))))))))),
+   :param-types [:string]}
+  {:name parse-nat,
+   :params [s acc],
+   :result :i64,
+   :effects #{},
+   :body
+   (let
+    [n (string-byte-length s)]
+    (if
+     (= n 0)
+     acc
+     (let
+      [c (string-substring s 0 1)]
+      (if
+       (= (digit? c) 1)
+       (parse-nat
+        (string-substring s 1 n)
+        (+ (* acc 10) (digit-val c)))
+       -1)))),
+   :param-types [:string :i64]}
+  {:name as-int-string,
+   :params [s],
+   :result :i64,
+   :effects #{},
+   :body
+   (let
+    [t (trim s) n (string-byte-length t)]
+    (if
+     (= n 0)
+     0
+     (if
+      (string=? (string-substring t 0 1) "-")
+      (if
+       (< n 2)
+       0
+       (let
+        [v (parse-nat (string-substring t 1 n) 0)]
+        (if (< v 0) 0 (- 0 v))))
+      (let [v (parse-nat t 0)] (if (< v 0) 0 v))))),
+   :param-types [:string]}
+  {:name as-bool-string,
+   :params [s],
+   :result :i64,
+   :effects #{},
+   :body
+   (let
+    [t (string-fold-case s)]
+    (if
+     (string=? t "1")
+     1
+     (if
+      (string=? t "true")
+      1
+      (if (string=? t "yes") 1 (if (string=? t "on") 1 0))))),
+   :param-types [:string]}
+  {:name clamp-limit,
+   :params [raw],
+   :result :i64,
+   :effects #{},
+   :body
+   (let
+    [base (if (< raw 1) (default-limit) raw) lo (if (< base 1) 1 base)]
+    (if (< (max-limit) lo) (max-limit) lo)),
+   :param-types [:i64]}
+  {:name collection-path,
+   :params [plural],
+   :result :string,
+   :effects #{},
+   :body (string-concat "/v1/" plural),
+   :param-types [:string]}
+  {:name item-path,
+   :params [plural],
+   :result :string,
+   :effects #{},
+   :body (string-concat (collection-path plural) "/{id}"),
+   :param-types [:string]}
+  {:name fact-attr,
+   :params [entity field],
+   :result :string,
+   :effects #{},
+   :body
+   (string-concat
+    (ns-prefix)
+    (string-concat
+     "."
+     (string-concat entity (string-concat "/" field)))),
+   :param-types [:string :string]}
+  {:name id-with-prefix,
+   :params [prefix hex16],
+   :result :string,
+   :effects #{},
+   :body (string-concat prefix (string-concat "_" hex16)),
+   :param-types [:string :string]}
+  {:name missing-required-prefix,
+   :params [],
+   :result :string,
+   :effects #{},
+   :body "Missing required fields: ",
+   :param-types []}
+  {:name unknown-fields-prefix,
+   :params [],
+   :result :string,
+   :effects #{},
+   :body "Unknown fields: ",
+   :param-types []}],
+ :oracle-value nil,
+ :schema-identities nil,
+ :exports
+ [ns-prefix
+  tier
+  default-limit
+  max-limit
+  health-actor
+  blank?
+  ws?
+  digit?
+  digit-val
+  trim
+  parse-nat
+  as-int-string
+  as-bool-string
+  clamp-limit
+  collection-path
+  item-path
+  fact-attr
+  id-with-prefix
+  create-status
+  ok-status
+  bad-request-status
+  not-found-status
+  missing-required-prefix
+  unknown-fields-prefix],
+ :schemas nil,
+ :effects #{},
+ :blocks [],
+ :entry nil}
