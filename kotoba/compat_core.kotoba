@@ -1,0 +1,141 @@
+(ns compat-core
+  (:export [ns-prefix tier default-limit max-limit health-actor
+            blank? ws? digit? digit-val trim parse-nat as-int-string
+            as-bool-string clamp-limit
+            collection-path item-path fact-attr
+            id-with-prefix
+            create-status ok-status bad-request-status not-found-status
+            missing-required-prefix unknown-fields-prefix]))
+
+;; W6 cloudflare-compat pure oracle — coerce + route/path + limit clamp.
+;; entity-specs / handlers / *store* / now / rand stay cljc host.
+;; as-int-string / as-bool-string cover the string branch of cljc as-int/as-bool.
+;; Parity: test/cloudflare/compat_kotoba_parity_test.clj
+
+(defn ns-prefix [] :string "cloudflare")
+(defn tier [] :string "L5")
+(defn default-limit [] :i64 20)
+(defn max-limit [] :i64 100)
+(defn health-actor [] :string "cloudflare-compat")
+
+(defn create-status [] :i64 201)
+(defn ok-status [] :i64 200)
+(defn bad-request-status [] :i64 400)
+(defn not-found-status [] :i64 404)
+
+(defn ws? [c :string] :i64
+  (if (string=? c " ")
+    1
+    (if (string=? c "\n")
+      1
+      (if (string=? c "\t")
+        1
+        (if (string=? c "\r") 1 0)))))
+
+(defn blank? [s :string] :i64
+  (let [n (string-byte-length s)]
+    (if (= n 0)
+      1
+      (if (= (ws? (string-substring s 0 1)) 1)
+        (blank? (string-substring s 1 n))
+        0))))
+
+(defn trim [s :string] :string
+  (let [n (string-byte-length s)]
+    (if (= n 0)
+      s
+      (if (= (ws? (string-substring s 0 1)) 1)
+        (trim (string-substring s 1 n))
+        (if (= (ws? (string-substring s (- n 1) n)) 1)
+          (trim (string-substring s 0 (- n 1)))
+          s)))))
+
+(defn digit? [c :string] :i64
+  (if (string-contains? "0123456789" c) 1 0))
+
+(defn digit-val [c :string] :i64
+  ;; index of c in "0123456789" (caller ensures digit?)
+  (if (string=? c "0")
+    0
+    (if (string=? c "1")
+      1
+      (if (string=? c "2")
+        2
+        (if (string=? c "3")
+          3
+          (if (string=? c "4")
+            4
+            (if (string=? c "5")
+              5
+              (if (string=? c "6")
+                6
+                (if (string=? c "7")
+                  7
+                  (if (string=? c "8")
+                    8
+                    9))))))))))
+
+(defn parse-nat [s :string acc :i64] :i64
+  ;; returns -1 on non-digit; empty after trim handled by caller
+  (let [n (string-byte-length s)]
+    (if (= n 0)
+      acc
+      (let [c (string-substring s 0 1)]
+        (if (= (digit? c) 1)
+          (parse-nat (string-substring s 1 n) (+ (* acc 10) (digit-val c)))
+          -1)))))
+
+(defn as-int-string [s :string] :i64
+  ;; cljc as-int string branch: Long/parseLong trimmed, else 0
+  (let [t (trim s)
+        n (string-byte-length t)]
+    (if (= n 0)
+      0
+      (if (string=? (string-substring t 0 1) "-")
+        (if (< n 2)
+          0
+          (let [v (parse-nat (string-substring t 1 n) 0)]
+            (if (< v 0) 0 (- 0 v))))
+        (let [v (parse-nat t 0)]
+          (if (< v 0) 0 v))))))
+
+(defn as-bool-string [s :string] :i64
+  ;; cljc as-bool for strings: lower-case only (no trim) then set membership
+  (let [t (string-fold-case s)]
+    (if (string=? t "1")
+      1
+      (if (string=? t "true")
+        1
+        (if (string=? t "yes")
+          1
+          (if (string=? t "on") 1 0))))))
+
+(defn clamp-limit [raw :i64] :i64
+  ;; cljc paginate: (min (max (or (pos? l → l) default) 1) max-limit)
+  ;; host projects missing/non-pos as 0
+  (let [base (if (< raw 1) (default-limit) raw)
+        lo (if (< base 1) 1 base)]
+    (if (< (max-limit) lo) (max-limit) lo)))
+
+(defn collection-path [plural :string] :string
+  (string-concat "/v1/" plural))
+
+(defn item-path [plural :string] :string
+  (string-concat (collection-path plural) "/{id}"))
+
+(defn fact-attr [entity :string field :string] :string
+  ;; emit-facts key: cloudflare.<Entity>/<field>
+  (string-concat
+   (ns-prefix)
+   (string-concat "."
+                  (string-concat entity (string-concat "/" field)))))
+
+(defn id-with-prefix [prefix :string hex16 :string] :string
+  ;; cljc new-id: prefix + "_" + rand-hex16 (host supplies hex)
+  (string-concat prefix (string-concat "_" hex16)))
+
+(defn missing-required-prefix [] :string
+  "Missing required fields: ")
+
+(defn unknown-fields-prefix [] :string
+  "Unknown fields: ")
