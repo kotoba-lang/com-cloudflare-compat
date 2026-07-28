@@ -11,13 +11,35 @@
 
   State lives on the kotoba Datom log: `emit-facts` produces namespaced EAVT
   facts (`cloudflare.<Entity>/<field>`); `*store*` is the in-memory materialization
-  used by the contract test and by the WASM runtime before a live engine binds."
-  (:require [clojure.string :as str]))
+  used by the contract test and by the WASM runtime before a live engine binds.
 
-(def ns-prefix "cloudflare")
-(def tier "L5")
-(def default-limit 20)
-(def max-limit 100)
+  W6 product-shell authority (ADR 0002):
+  On the JVM, constants + coerce/path/limit pure helpers DELEGATE to
+  precompiled compat_core.kir.edn. Handlers/store/clock stay host."
+  (:require [clojure.string :as str]
+            #?(:clj [cloudflare.kotoba.oracle :as oracle])))
+
+(def ^:private oid :compat)
+
+#?(:clj
+   (defn- o [export args]
+     (oracle/call oid export args)))
+
+(def ns-prefix
+  #?(:clj (o 'ns-prefix [])
+     :cljs "cloudflare"))
+
+(def tier
+  #?(:clj (o 'tier [])
+     :cljs "L5"))
+
+(def default-limit
+  #?(:clj (long (o 'default-limit []))
+     :cljs 20))
+
+(def max-limit
+  #?(:clj (long (o 'max-limit []))
+     :cljs 100))
 
 ;; --- schema-derived entity specs (the single source the handlers fold over) ---
 (def entity-specs
@@ -42,13 +64,25 @@
 
 (def entities (mapv :entity entity-specs))
 
+(defn collection-path
+  "REST collection path for a plural. JVM: kotoba `collection-path`."
+  [plural]
+  #?(:clj (o 'collection-path [(str plural)])
+     :cljs (str "/v1/" plural)))
+
+(defn item-path
+  "REST item path template for a plural. JVM: kotoba `item-path`."
+  [plural]
+  #?(:clj (o 'item-path [(str plural)])
+     :cljs (str "/v1/" plural "/{id}")))
+
 (def routes
   (vec (mapcat (fn [{:keys [plural entity]}]
-                 [{:method "POST"   :path (str "/v1/" plural)        :op (str "create " entity) :entity entity}
-                  {:method "GET"    :path (str "/v1/" plural)        :op (str "list " entity)   :entity entity}
-                  {:method "GET"    :path (str "/v1/" plural "/{id}") :op (str "get " entity)    :entity entity}
-                  {:method "PATCH"  :path (str "/v1/" plural "/{id}") :op (str "update " entity) :entity entity}
-                  {:method "DELETE" :path (str "/v1/" plural "/{id}") :op (str "delete " entity) :entity entity}])
+                 [{:method "POST"   :path (collection-path plural) :op (str "create " entity) :entity entity}
+                  {:method "GET"    :path (collection-path plural) :op (str "list " entity)   :entity entity}
+                  {:method "GET"    :path (item-path plural)       :op (str "get " entity)    :entity entity}
+                  {:method "PATCH"  :path (item-path plural)       :op (str "update " entity) :entity entity}
+                  {:method "DELETE" :path (item-path plural)       :op (str "delete " entity) :entity entity}])
                entity-specs)))
 
 ;; --- platform primitives ---
@@ -60,13 +94,19 @@
   #?(:clj (subs (str/replace (str (java.util.UUID/randomUUID)) "-" "") 0 16)
      :cljs (subs (str/replace (str (random-uuid)) "-" "") 0 16)))
 
-(defn new-id [prefix] (str prefix "_" (rand-hex16)))
+(defn new-id
+  "id-prefix + '_' + hex16. JVM: kotoba `id-with-prefix`."
+  [prefix]
+  #?(:clj (o 'id-with-prefix [(str prefix) (rand-hex16)])
+     :cljs (str prefix "_" (rand-hex16))))
 
 ;; --- coercion ---
 (defn as-int [v]
   (cond (number? v) (long v)
-        (string? v) (try #?(:clj (Long/parseLong (str/trim v)) :cljs (let [n (js/parseInt v 10)] (if (js/isNaN n) 0 n)))
-                         (catch #?(:clj Exception :cljs :default) _ 0))
+        (string? v)
+        #?(:clj (long (o 'as-int-string [(str v)]))
+           :cljs (try (let [n (js/parseInt v 10)] (if (js/isNaN n) 0 n))
+                      (catch :default _ 0)))
         :else 0))
 
 (defn as-float [v]
@@ -76,10 +116,30 @@
         :else 0.0))
 
 (defn as-bool [v]
-  (if (nil? v) false (contains? #{"1" "true" "yes" "on" true} (if (string? v) (str/lower-case v) v))))
+  #?(:clj
+     (cond (nil? v) false
+           (boolean? v) v
+           (string? v) (= 1 (long (o 'as-bool-string [(str v)])))
+           :else (contains? #{true} v))
+     :cljs
+     (if (nil? v) false (contains? #{"1" "true" "yes" "on" true} (if (string? v) (str/lower-case v) v)))))
 
 (defn coerce-field [kind v]
   (case kind :int (as-int v) :float (as-float v) :bool (as-bool v) v))
+
+(defn clamp-limit
+  "Clamp raw limit for pagination. JVM: kotoba `clamp-limit`."
+  [raw]
+  #?(:clj (long (o 'clamp-limit [(long raw)]))
+     :cljs (let [base (if (< raw 1) default-limit raw)
+                 lo (if (< base 1) 1 base)]
+             (if (< max-limit lo) max-limit lo))))
+
+(defn fact-attr
+  "EAVT attribute key for entity/field. JVM: kotoba `fact-attr`."
+  [entity field]
+  #?(:clj (o 'fact-attr [(str entity) (str field)])
+     :cljs (str ns-prefix "." entity "/" field)))
 
 ;; --- in-memory store (materializes the Datom log; live engine binds in prod) ---
 (defn fresh-store [] (atom {}))
@@ -89,7 +149,7 @@
   "EAVT facts for one record: {\"cloudflare.<Entity>/<field>\" v ...}. The datomic
   binding transacts these; the in-memory store keeps the record by id."
   [entity rec]
-  (into {} (map (fn [[k v]] [(str ns-prefix "." entity "/" (name k)) v]) rec)))
+  (into {} (map (fn [[k v]] [(fact-attr entity (name k)) v]) rec)))
 
 (defn persist! [store entity rec]
   (swap! store assoc-in [entity (:id rec)] rec)
@@ -105,14 +165,18 @@
 (defn require-fields [data fields]
   (let [missing (remove #(let [v (get data %)] (and (some? v) (not= v ""))) fields)]
     (when (seq missing)
-      {:error {:message (str "Missing required fields: " (str/join ", " (map name missing)))
+      {:error {:message (str #?(:clj (o 'missing-required-prefix [])
+                                :cljs "Missing required fields: ")
+                             (str/join ", " (map name missing)))
                :type "invalid_request_error"}})))
 
 (defn reject-unknown [data allowed]
   (let [allowed-set (set allowed)
         extra (remove allowed-set (keys data))]
     (when (seq extra)
-      {:error {:message (str "Unknown fields: " (str/join ", " (map name extra)))
+      {:error {:message (str #?(:clj (o 'unknown-fields-prefix [])
+                                :cljs "Unknown fields: ")
+                             (str/join ", " (map name extra)))
                :type "invalid_request_error"}})))
 
 ;; --- list helpers ---
@@ -125,7 +189,8 @@
           rows fields))
 
 (defn paginate [rows params]
-  (let [limit (min (max (or (let [l (as-int (get params :limit))] (when (pos? l) l)) default-limit) 1) max-limit)
+  (let [raw (or (let [l (as-int (get params :limit))] (when (pos? l) l)) 0)
+        limit (clamp-limit raw)
         start (get params :starting_after)
         rows (if (some? start)
                (let [ids (mapv :id rows) idx (.indexOf ^java.util.List ids start)]
@@ -145,43 +210,60 @@
 
 ;; --- generic handlers (return [body status]) ---
 (defn- spec-for [entity] (first (filter #(= (:entity %) entity) entity-specs)))
-(defn- not-found [] [{:error {:message "Not found" :type "not_found"}} 404])
+(defn- not-found []
+  [{:error {:message "Not found" :type "not_found"}}
+   #?(:clj (long (o 'not-found-status [])) :cljs 404)])
 
 (defn handle-create [store entity data]
   (let [{:keys [fields required coerce id-prefix]} (spec-for entity)]
-    (or (some-> (reject-unknown data fields) (vector 400))
-        (some-> (require-fields data required) (vector 400))
+    (or (some-> (reject-unknown data fields)
+                (vector #?(:clj (long (o 'bad-request-status [])) :cljs 400)))
+        (some-> (require-fields data required)
+                (vector #?(:clj (long (o 'bad-request-status [])) :cljs 400)))
         (let [base {:id (new-id id-prefix)}
               rec (reduce (fn [m f] (assoc m f (coerce-field (get coerce f) (get data f)))) base fields)
               rec (assoc rec :createdAt (now) :updatedAt (now))]
           (persist! store entity rec)
-          [rec 201]))))
+          [rec #?(:clj (long (o 'create-status [])) :cljs 201)]))))
 
 (defn handle-list [store entity params]
   (let [{:keys [fields]} (spec-for entity)
         rows (apply-filters (query store entity) params fields)
         [page has-more] (paginate rows params)]
-    [{:object "list" :data page :has_more has-more :count (count page) :total (count rows)} 200]))
+    [{:object "list" :data page :has_more has-more :count (count page) :total (count rows)}
+     #?(:clj (long (o 'ok-status [])) :cljs 200)]))
 
 (defn handle-get [store entity id params]
   (let [{:keys [refs]} (spec-for entity) rows (query store entity id)]
-    (if (empty? rows) (not-found) [(expand store (first rows) params refs) 200])))
+    (if (empty? rows)
+      (not-found)
+      [(expand store (first rows) params refs)
+       #?(:clj (long (o 'ok-status [])) :cljs 200)])))
 
 (defn handle-update [store entity id data]
   (let [{:keys [fields]} (spec-for entity) rows (query store entity id)]
     (if (empty? rows)
       (not-found)
-      (or (some-> (reject-unknown data fields) (vector 400))
+      (or (some-> (reject-unknown data fields)
+                  (vector #?(:clj (long (o 'bad-request-status [])) :cljs 400)))
           (let [rec (reduce-kv (fn [m k v] (if (#{:id :createdAt} k) m (assoc m k v)))
                                (first rows) data)
                 rec (assoc rec :updatedAt (now))]
             (persist! store entity rec)
-            [rec 200])))))
+            [rec #?(:clj (long (o 'ok-status [])) :cljs 200)])))))
 
 (defn handle-delete [store entity id]
-  (if (empty? (query store entity id)) (not-found) [(retract! store entity id) 200]))
+  (if (empty? (query store entity id))
+    (not-found)
+    [(retract! store entity id)
+     #?(:clj (long (o 'ok-status [])) :cljs 200)]))
 
-(defn healthz [] [{:status "ok" :actor "cloudflare-compat" :tier tier :entities entities} 200])
+(defn healthz []
+  [{:status "ok"
+    :actor #?(:clj (o 'health-actor []) :cljs "cloudflare-compat")
+    :tier tier
+    :entities entities}
+   #?(:clj (long (o 'ok-status [])) :cljs 200)])
 
 ;; --- WASM runtime registration (kotodama). The runtime host owns the live
 ;;     Datom log; handlers stay pure folds over a store, so this is G5-clean. ---
