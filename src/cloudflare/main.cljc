@@ -103,8 +103,10 @@
   [prefix]
   (let [hex (rand-hex16)]
     (o-record 'id-with-prefix
-              {:prefix prefix :hex hex}
-              [[:prefix :string] [:hex :string]])))
+              {:in (oracle/record
+                    [:record :compat/id-prefix [[:prefix :string] [:hex16 :string]]]
+                    {:prefix prefix :hex16 hex})}
+              [[:in :raw]])))
 
 ;; --- coercion ---
 (defn as-int [v]
@@ -141,8 +143,10 @@
   "EAVT attribute key for entity/field. Kotoba `fact-attr` (T6.4)."
   [entity field]
   (o-record 'fact-attr
-            {:entity entity :field field}
-            [[:entity :string] [:field :string]]))
+            {:in (oracle/record
+                  [:record :compat/entity-field [[:entity :string] [:field :string]]]
+                  {:entity entity :field field})}
+            [[:in :raw]]))
 
 ;; --- in-memory store (materializes the Datom log; live engine binds in prod) ---
 (defn fresh-store [] (atom {}))

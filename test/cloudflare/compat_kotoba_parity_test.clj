@@ -119,13 +119,20 @@
                              [(str "i_" p) (str "(item-path " (kotoba-literal p) ")")]])
                           plurals))
         paths (compile-string-cases path-cases)
+        entity-field-lit
+        "[:record :compat/entity-field [[:entity :string] [:field :string]]]"
+        id-prefix-lit
+        "[:record :compat/id-prefix [[:prefix :string] [:hex16 :string]]]"
         facts (compile-string-cases
-               {"f1" (str "(fact-attr " (kotoba-literal "Zone") " "
-                          (kotoba-literal "name") ")")
-                "f2" (str "(fact-attr " (kotoba-literal "DNSRecord") " "
-                          (kotoba-literal "ttl") ")")
-                "id" (str "(id-with-prefix " (kotoba-literal "cloudfla_zon") " "
-                          (kotoba-literal "deadbeefdeadbeef") ")")})]
+               {"f1" (str "(fact-attr (record-new " entity-field-lit " "
+                          (kotoba-literal "Zone") " "
+                          (kotoba-literal "name") "))")
+                "f2" (str "(fact-attr (record-new " entity-field-lit " "
+                          (kotoba-literal "DNSRecord") " "
+                          (kotoba-literal "ttl") "))")
+                "id" (str "(id-with-prefix (record-new " id-prefix-lit " "
+                          (kotoba-literal "cloudfla_zon") " "
+                          (kotoba-literal "deadbeefdeadbeef") "))")})]
     (doseq [{:keys [plural]} m/entity-specs]
       (is (= (str "/v1/" plural) (get paths (str "c_" plural))))
       (is (= (str "/v1/" plural "/{id}") (get paths (str "i_" plural)))))
