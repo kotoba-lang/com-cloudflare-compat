@@ -56,8 +56,13 @@
            (oracle/call :compat 'clamp-limit [0])))
     (is (= (ir/execute live 'collection-path ["zones"])
            (oracle/call :compat 'collection-path ["zones"])))
-    (is (= (ir/execute live 'fact-attr ["Zone" "name"])
-           (oracle/call :compat 'fact-attr ["Zone" "name"])))))
+    (let [rec (oracle/record
+               [:record :compat/entity-field [[:entity :string] [:field :string]]]
+               {:entity "Zone" :field "name"})]
+      (is (= (ir/execute live 'fact-attr [rec])
+             (oracle/call :compat 'fact-attr [rec])))
+      (is (= (m/fact-attr "Zone" "name")
+             (oracle/call :compat 'fact-attr [rec]))))))
 
 (deftest precompiled-kir-does-not-drift
   (let [live (:kir (compiler/compile-source (slurp "kotoba/compat_core.kotoba")

@@ -169,9 +169,31 @@
   "Call an oracle export with a structural host map (T5.2).
 
   Projects `host-map` through `field-specs` into the positional guest ABI,
-  then `call`. Product hosts prefer this over hand-built arity vectors."
+  then `call`. When the guest export takes a single native record, build it
+  with `record` and pass `[[:in :raw]]`."
   [oracle-id export host-map field-specs]
   (call oracle-id export (map->args host-map field-specs)))
+
+(defn record
+  "Build a native guest record argument for `call` (T5.2 / T5.3).
+
+  `schema` is `[:record :ns/name [[:field type] …]]`; `host-map` supplies fields."
+  [schema host-map]
+  (let [fields (nth schema 2)]
+    (into [schema]
+          (map (fn [[field field-type]]
+                 (let [v (get host-map field)]
+                   (when-not (contains? host-map field)
+                     (throw (ex-info "record field missing for guest schema"
+                                     {:schema (second schema) :field field})))
+                   (cond
+                     (= field-type :i64) (as-i64 v)
+                     (= field-type :string) (str v)
+                     (= field-type :bool) (boolean v)
+                     (= field-type [:option :i64]) (option-i64 v)
+                     (= field-type [:option :string]) (option-string v)
+                     :else v))))
+          fields)))
 
 (defn catalog-ids [] (keys catalog))
 (defn catalog-count [] (count catalog))

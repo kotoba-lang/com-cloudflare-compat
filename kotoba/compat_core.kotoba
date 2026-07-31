@@ -1,4 +1,11 @@
 (ns compat-core
+  (:schemas {;; T5.2 native guest record: multi-arg pure → single record
+             :compat/digits-go [:record :compat/digits-go
+                                [[:s :string] [:acc :i64]]]
+             :compat/entity-field [:record :compat/entity-field
+                                   [[:entity :string] [:field :string]]]
+             :compat/id-prefix [:record :compat/id-prefix
+                                [[:prefix :string] [:hex16 :string]]]})
   (:export [ns-prefix tier default-limit max-limit health-actor
             blank? ws? digit? digit-val trim parse-nat as-int-string
             as-bool-string clamp-limit
@@ -10,6 +17,7 @@
 ;; W6 cloudflare-compat pure oracle — coerce + route/path + limit clamp.
 ;; entity-specs / handlers / *store* / now / rand stay cljc host.
 ;; as-int-string / as-bool-string cover the string branch of cljc as-int/as-bool.
+;; T5.2: multi-arg pure folded into single guest records.
 ;; Parity: test/cloudflare/compat_kotoba_parity_test.clj
 
 (defn ns-prefix [] :string "cloudflare")
@@ -75,14 +83,19 @@
                     8
                     9))))))))))
 
-(defn parse-nat [s :string acc :i64] :i64
+(defn parse-nat [x [:ref :compat/digits-go]] :i64
   ;; returns -1 on non-digit; empty after trim handled by caller
-  (let [n (string-byte-length s)]
+  ;; T5.2 residual: s+acc on one guest record
+  (let [s (record-get x :s)
+        acc (record-get x :acc)
+        n (string-byte-length s)]
     (if (= n 0)
       acc
       (let [c (string-substring s 0 1)]
         (if (= (digit? c) 1)
-          (parse-nat (string-substring s 1 n) (+ (* acc 10) (digit-val c)))
+          (parse-nat (record-new [:ref :compat/digits-go]
+                                 (string-substring s 1 n)
+                                 (+ (* acc 10) (digit-val c))))
           -1)))))
 
 (defn as-int-string [s :string] :i64
@@ -94,9 +107,10 @@
       (if (string=? (string-substring t 0 1) "-")
         (if (< n 2)
           0
-          (let [v (parse-nat (string-substring t 1 n) 0)]
+          (let [v (parse-nat (record-new [:ref :compat/digits-go]
+                                         (string-substring t 1 n) 0))]
             (if (< v 0) 0 (- 0 v))))
-        (let [v (parse-nat t 0)]
+        (let [v (parse-nat (record-new [:ref :compat/digits-go] t 0))]
           (if (< v 0) 0 v))))))
 
 (defn as-bool-string [s :string] :i64
@@ -123,16 +137,20 @@
 (defn item-path [plural :string] :string
   (string-concat (collection-path plural) "/{id}"))
 
-(defn fact-attr [entity :string field :string] :string
+(defn fact-attr [x [:ref :compat/entity-field]] :string
   ;; emit-facts key: cloudflare.<Entity>/<field>
+  ;; T5.2: entity+field on one guest record
   (string-concat
    (ns-prefix)
    (string-concat "."
-                  (string-concat entity (string-concat "/" field)))))
+                  (string-concat (record-get x :entity)
+                                 (string-concat "/" (record-get x :field))))))
 
-(defn id-with-prefix [prefix :string hex16 :string] :string
+(defn id-with-prefix [x [:ref :compat/id-prefix]] :string
   ;; cljc new-id: prefix + "_" + rand-hex16 (host supplies hex)
-  (string-concat prefix (string-concat "_" hex16)))
+  ;; T5.2: prefix+hex16 on one guest record
+  (string-concat (record-get x :prefix)
+                 (string-concat "_" (record-get x :hex16))))
 
 (defn missing-required-prefix [] :string
   "Missing required fields: ")

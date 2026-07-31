@@ -136,12 +136,23 @@
           (if (string=? c "7") 7 (if (string=? c "8") 8 9))))))))),
    :param-types [:string]}
   {:name parse-nat,
-   :params [s acc],
+   :params [x],
    :result :i64,
    :effects #{},
    :body
    (let
-    [n (string-byte-length s)]
+    [s
+     (record-get
+      [:record :compat/digits-go [[:s :string] [:acc :i64]]]
+      x
+      :s)
+     acc
+     (record-get
+      [:record :compat/digits-go [[:s :string] [:acc :i64]]]
+      x
+      :acc)
+     n
+     (string-byte-length s)]
     (if
      (= n 0)
      acc
@@ -150,10 +161,12 @@
       (if
        (= (digit? c) 1)
        (parse-nat
-        (string-substring s 1 n)
-        (+ (* acc 10) (digit-val c)))
+        (record-new
+         [:record :compat/digits-go [[:s :string] [:acc :i64]]]
+         (string-substring s 1 n)
+         (+ (* acc 10) (digit-val c))))
        -1)))),
-   :param-types [:string :i64]}
+   :param-types [[:ref :compat/digits-go]]}
   {:name as-int-string,
    :params [s],
    :result :i64,
@@ -170,9 +183,21 @@
        (< n 2)
        0
        (let
-        [v (parse-nat (string-substring t 1 n) 0)]
+        [v
+         (parse-nat
+          (record-new
+           [:record :compat/digits-go [[:s :string] [:acc :i64]]]
+           (string-substring t 1 n)
+           0))]
         (if (< v 0) 0 (- 0 v))))
-      (let [v (parse-nat t 0)] (if (< v 0) 0 v))))),
+      (let
+       [v
+        (parse-nat
+         (record-new
+          [:record :compat/digits-go [[:s :string] [:acc :i64]]]
+          t
+          0))]
+       (if (< v 0) 0 v))))),
    :param-types [:string]}
   {:name as-bool-string,
    :params [s],
@@ -211,7 +236,7 @@
    :body (string-concat (collection-path plural) "/{id}"),
    :param-types [:string]}
   {:name fact-attr,
-   :params [entity field],
+   :params [x],
    :result :string,
    :effects #{},
    :body
@@ -219,14 +244,39 @@
     (ns-prefix)
     (string-concat
      "."
-     (string-concat entity (string-concat "/" field)))),
-   :param-types [:string :string]}
+     (string-concat
+      (record-get
+       [:record
+        :compat/entity-field
+        [[:entity :string] [:field :string]]]
+       x
+       :entity)
+      (string-concat
+       "/"
+       (record-get
+        [:record
+         :compat/entity-field
+         [[:entity :string] [:field :string]]]
+        x
+        :field))))),
+   :param-types [[:ref :compat/entity-field]]}
   {:name id-with-prefix,
-   :params [prefix hex16],
+   :params [x],
    :result :string,
    :effects #{},
-   :body (string-concat prefix (string-concat "_" hex16)),
-   :param-types [:string :string]}
+   :body
+   (string-concat
+    (record-get
+     [:record :compat/id-prefix [[:prefix :string] [:hex16 :string]]]
+     x
+     :prefix)
+    (string-concat
+     "_"
+     (record-get
+      [:record :compat/id-prefix [[:prefix :string] [:hex16 :string]]]
+      x
+      :hex16))),
+   :param-types [[:ref :compat/id-prefix]]}
   {:name missing-required-prefix,
    :params [],
    :result :string,
@@ -240,7 +290,13 @@
    :body "Unknown fields: ",
    :param-types []}],
  :oracle-value nil,
- :schema-identities nil,
+ :schema-identities
+ #:compat{:digits-go
+          "ba95fd91cc0dc6b470c02de91416fb5232e983dd118f3f3f21f0dc4dde7a5c98",
+          :entity-field
+          "5531c4501b74bf055b326bc9ae4b65b87d47cf354e2a709dc298ffb1ef733518",
+          :id-prefix
+          "71db8b4c5d1e8078f581fc1c4f982a8c18434ba1d0fcf80b42fe8130595123ab"},
  :exports
  [ns-prefix
   tier
@@ -266,7 +322,17 @@
   not-found-status
   missing-required-prefix
   unknown-fields-prefix],
- :schemas nil,
+ :schemas
+ #:compat{:digits-go
+          [:record :compat/digits-go [[:s :string] [:acc :i64]]],
+          :entity-field
+          [:record
+           :compat/entity-field
+           [[:entity :string] [:field :string]]],
+          :id-prefix
+          [:record
+           :compat/id-prefix
+           [[:prefix :string] [:hex16 :string]]]},
  :effects #{},
  :blocks [],
  :entry nil}
