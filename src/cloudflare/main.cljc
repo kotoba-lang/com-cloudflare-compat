@@ -13,49 +13,39 @@
   facts (`cloudflare.<Entity>/<field>`); `*store*` is the in-memory materialization
   used by the contract test and by the WASM runtime before a live engine binds.
 
-  W6 product-shell authority (ADR 0002 + ADR 0003 cljs dual-source):
-  constants + coerce/path/limit pure helpers DELEGATE to precompiled
-  compat_core.kir.edn when oracle loadable (JVM or cljs/nbb).
-  Handlers/store/clock stay host; cljs mirrors remain fallback."
+  W6 product-shell + T5.2 call-record + T6.4 mirror-delete:
+  constants + coerce/path/limit pure helpers require the shipped `:compat`
+  KIR on every platform. Host pure mirrors are gone — cljs/nbb must preload
+  shipped KIR before requiring this ns (ADR 0004).
+  Handlers/store/clock stay host."
   (:require [clojure.string :as str]
             [cloudflare.kotoba.oracle :as oracle]))
 
 (def ^:private oid :compat)
 
-(defn- o [export args]
+(defn- o
+  "Call a pure export. Requires the shipped oracle on every platform (T6.4)."
+  [export args]
+  (oracle/require-ready! oid)
   (oracle/call oid export args))
 
-(defn- oracle-ready? []
-  (oracle/ready? oid))
-
-(defn- try-oracle
-  [thunk mirror-thunk]
-  (if (oracle-ready?)
-    (try
-      (thunk)
-      (catch #?(:clj Exception :cljs :default) _
-        (mirror-thunk)))
-    (mirror-thunk)))
+(defn- o-record
+  "T5.2: structural host map → call-record (requires shipped oracle)."
+  [export host-map field-specs]
+  (oracle/require-ready! oid)
+  (oracle/call-record oid export host-map field-specs))
 
 (def ns-prefix
-  (try-oracle
-   #(o 'ns-prefix [])
-   (fn [] "cloudflare")))
+  (o 'ns-prefix []))
 
 (def tier
-  (try-oracle
-   #(o 'tier [])
-   (fn [] "L5")))
+  (o 'tier []))
 
 (def default-limit
-  (try-oracle
-   #(oracle/i64->host (o 'default-limit []))
-   (fn [] 20)))
+  (oracle/i64->host (o 'default-limit [])))
 
 (def max-limit
-  (try-oracle
-   #(oracle/i64->host (o 'max-limit []))
-   (fn [] 100)))
+  (oracle/i64->host (o 'max-limit [])))
 
 ;; --- schema-derived entity specs (the single source the handlers fold over) ---
 (def entity-specs
@@ -81,18 +71,14 @@
 (def entities (mapv :entity entity-specs))
 
 (defn collection-path
-  "REST collection path for a plural. Kotoba `collection-path` when ready."
+  "REST collection path for a plural. Kotoba `collection-path` (T6.4)."
   [plural]
-  (try-oracle
-   #(o 'collection-path [(str plural)])
-   #(str "/v1/" plural)))
+  (o-record 'collection-path {:plural plural} [[:plural :string]]))
 
 (defn item-path
-  "REST item path template for a plural. Kotoba `item-path` when ready."
+  "REST item path template for a plural. Kotoba `item-path` (T6.4)."
   [plural]
-  (try-oracle
-   #(o 'item-path [(str plural)])
-   #(str "/v1/" plural "/{id}")))
+  (o-record 'item-path {:plural plural} [[:plural :string]]))
 
 (def routes
   (vec (mapcat (fn [{:keys [plural entity]}]
@@ -113,23 +99,19 @@
      :cljs (subs (str/replace (str (random-uuid)) "-" "") 0 16)))
 
 (defn new-id
-  "id-prefix + '_' + hex16. Kotoba `id-with-prefix` when ready."
+  "id-prefix + '_' + hex16. Kotoba `id-with-prefix` (T6.4)."
   [prefix]
   (let [hex (rand-hex16)]
-    (try-oracle
-     #(o 'id-with-prefix [(str prefix) hex])
-     #(str prefix "_" hex))))
+    (o-record 'id-with-prefix
+              {:prefix prefix :hex hex}
+              [[:prefix :string] [:hex :string]])))
 
 ;; --- coercion ---
 (defn as-int [v]
   (cond (number? v) (long v)
         (string? v)
-        (try-oracle
-         #(oracle/i64->host (o 'as-int-string [(str v)]))
-         #(try
-            #?(:clj (Long/parseLong (str/trim v))
-               :cljs (let [n (js/parseInt v 10)] (if (js/isNaN n) 0 n)))
-            (catch #?(:clj Exception :cljs :default) _ 0)))
+        (oracle/i64->host
+         (o-record 'as-int-string {:v v} [[:v :string]]))
         :else 0))
 
 (defn as-float [v]
@@ -142,30 +124,25 @@
   (cond (nil? v) false
         (boolean? v) v
         (string? v)
-        (try-oracle
-         #(= 1 (oracle/i64->host (o 'as-bool-string [(str v)])))
-         #(contains? #{"1" "true" "yes" "on"} (str/lower-case v)))
+        (= 1 (oracle/i64->host
+              (o-record 'as-bool-string {:v v} [[:v :string]])))
         :else (contains? #{true} v)))
 
 (defn coerce-field [kind v]
   (case kind :int (as-int v) :float (as-float v) :bool (as-bool v) v))
 
 (defn clamp-limit
-  "Clamp raw limit for pagination. Kotoba `clamp-limit` when ready."
+  "Clamp raw limit for pagination. Kotoba `clamp-limit` (T6.4)."
   [raw]
-  (try-oracle
-   #(oracle/i64->host (o 'clamp-limit [(oracle/as-i64 raw)]))
-   (fn []
-     (let [base (if (< raw 1) default-limit raw)
-           lo (if (< base 1) 1 base)]
-       (if (< max-limit lo) max-limit lo)))))
+  (oracle/i64->host
+   (o-record 'clamp-limit {:raw raw} [[:raw :i64]])))
 
 (defn fact-attr
-  "EAVT attribute key for entity/field. Kotoba `fact-attr` when ready."
+  "EAVT attribute key for entity/field. Kotoba `fact-attr` (T6.4)."
   [entity field]
-  (try-oracle
-   #(o 'fact-attr [(str entity) (str field)])
-   #(str ns-prefix "." entity "/" field)))
+  (o-record 'fact-attr
+            {:entity entity :field field}
+            [[:entity :string] [:field :string]]))
 
 ;; --- in-memory store (materializes the Datom log; live engine binds in prod) ---
 (defn fresh-store [] (atom {}))
@@ -191,9 +168,7 @@
 (defn require-fields [data fields]
   (let [missing (remove #(let [v (get data %)] (and (some? v) (not= v ""))) fields)]
     (when (seq missing)
-      {:error {:message (str (try-oracle
-                              #(o 'missing-required-prefix [])
-                              (fn [] "Missing required fields: "))
+      {:error {:message (str (o 'missing-required-prefix [])
                              (str/join ", " (map name missing)))
                :type "invalid_request_error"}})))
 
@@ -201,9 +176,7 @@
   (let [allowed-set (set allowed)
         extra (remove allowed-set (keys data))]
     (when (seq extra)
-      {:error {:message (str (try-oracle
-                              #(o 'unknown-fields-prefix [])
-                              (fn [] "Unknown fields: "))
+      {:error {:message (str (o 'unknown-fields-prefix [])
                              (str/join ", " (map name extra)))
                :type "invalid_request_error"}})))
 
@@ -240,10 +213,10 @@
 ;; --- generic handlers (return [body status]) ---
 (defn- spec-for [entity] (first (filter #(= (:entity %) entity) entity-specs)))
 
-(defn- status-code [export mirror]
-  (try-oracle
-   #(oracle/i64->host (o export []))
-   (fn [] mirror)))
+(defn- status-code
+  "HTTP status from oracle export (T6.4). `mirror` kept for call-site clarity only."
+  [export _mirror]
+  (oracle/i64->host (o export [])))
 
 (defn- not-found []
   [{:error {:message "Not found" :type "not_found"}}
@@ -294,9 +267,7 @@
 
 (defn healthz []
   [{:status "ok"
-    :actor (try-oracle
-            #(o 'health-actor [])
-            (fn [] "cloudflare-compat"))
+    :actor (o 'health-actor [])
     :tier tier
     :entities entities}
    (status-code 'ok-status 200)])
