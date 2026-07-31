@@ -1,13 +1,12 @@
 ;; cloudflare.kotoba.oracle — product-shell loader for precompiled pure KIR.
 ;;
-;; Authority dual-source (murakumo/com-cloudflare form):
+;; Authority product-shell pattern (W6 + T5.2 call-record + T6.4 mirror-delete):
 ;;   1. SSoT: kotoba/compat_core.kotoba
 ;;   2. Artifact: resources/cloudflare/oracle/compat_core.kir.edn
-;;   3. Host public API delegates pure helpers here
+;;   3. Host pure helpers require shipped KIR (require-ready!); no soft mirrors
 ;;
-;; CLJS load (optional, ADR 0003):
-;;   - register-kir! — inject pre-parsed KIR
-;;   - set-resource-loader! — custom (fn [path] → string)
+;; CLJS load (ADR 0003 + T6.4 preload):
+;;   - register-kir! / set-resource-loader! / preload! / preload-catalog!
 ;;   - nbb/node default: read resources/<path> from process.cwd()
 ;;
 ;; Compiler stays test-only. Production needs only kotoba-kir + resources.
@@ -100,11 +99,100 @@
      :cljs (js/Number v)))
 
 (defn call
-  "Execute a pure export on the precompiled oracle."
+  "Execute a pure export on the precompiled oracle.
+
+  Prefer `call-record` when the host boundary is a map (T5.1 structural args)."
   [oracle-id export args]
   (let [kir (load-kir oracle-id)
         fn-name (if (symbol? export) export (symbol (name export)))]
     (ir/execute kir fn-name (vec args))))
 
+(defn option-of
+  "Host nil → option none; non-nil → option some (Product Value ABI v1)."
+  [type value]
+  (if (nil? value)
+    [type false]
+    [type true value]))
+
+(defn option-string
+  "Optional string: nil → none; otherwise some (including empty string)."
+  [s]
+  (option-of [:option :string] (when (some? s) (str s))))
+
+(defn option-i64
+  "Optional i64: nil → none; otherwise some long/BigInt."
+  [n]
+  (if (nil? n)
+    [[:option :i64] false]
+    [[:option :i64] true (as-i64 n)]))
+
+(defn bool->host
+  "KIR :bool / 0-1 word → host boolean."
+  [v]
+  (cond
+    (true? v) true
+    (false? v) false
+    (number? v) (not (zero? #?(:clj (long v) :cljs v)))
+    :else (boolean v)))
+
+(defn project-field
+  "Project one host map field into a guest ABI payload (T5.2).
+
+  kind: :string :i64 :bool :option-string :option-i64 :raw"
+  [kind v]
+  (case kind
+    :string (str (or v ""))
+    :i64 (as-i64 v)
+    :bool (boolean v)
+    :option-string (option-string v)
+    :option-i64 (option-i64 v)
+    :raw v
+    (if (nil? kind) v v)))
+
+(defn map->args
+  "Structural host map to ordered guest arg vector (T5.2 positional projection)."
+  [m field-specs]
+  (when-not (map? m)
+    (throw (ex-info "map->args requires a host map"
+                    {:phase :oracle-call-record :got (type m)})))
+  (when-not (sequential? field-specs)
+    (throw (ex-info "map->args requires field-specs sequential"
+                    {:phase :oracle-call-record})))
+  (mapv (fn [spec]
+          (if (vector? spec)
+            (let [[k kind] spec]
+              (project-field kind (get m k)))
+            (get m spec)))
+        field-specs))
+
+(defn call-record
+  "Call an oracle export with a structural host map (T5.2).
+
+  Projects `host-map` through `field-specs` into the positional guest ABI,
+  then `call`. Product hosts prefer this over hand-built arity vectors."
+  [oracle-id export host-map field-specs]
+  (call oracle-id export (map->args host-map field-specs)))
+
 (defn catalog-ids [] (keys catalog))
 (defn catalog-count [] (count catalog))
+
+(defn require-ready!
+  "Throw unless `oracle-id` is loadable (T6.4 — no soft mirror fallback)."
+  [oracle-id]
+  (when-not (ready? oracle-id)
+    (throw (ex-info "kotoba oracle not ready (T6.4 requires shipped KIR)"
+                    {:oracle-id oracle-id
+                     :hint "preload-catalog! / register-kir! / set-resource-loader!, or run nbb from repo root with resources/"})))
+  true)
+
+(defn preload!
+  "Load each oracle-id into the cache. nbb/browser entrypoints call once."
+  [oracle-ids]
+  (doseq [id oracle-ids]
+    (load-kir id))
+  (count oracle-ids))
+
+(defn preload-catalog!
+  "Load every catalog id into the cache."
+  []
+  (preload! (keys catalog)))
