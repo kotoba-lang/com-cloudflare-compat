@@ -2,8 +2,8 @@
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
         ;; W6 product-shell oracle authority: execute precompiled pure KIR.
         ;; Compiler stays :test-only.
-        io.github.kotoba-lang/kotoba-kir
-        {:git/url "https://github.com/kotoba-lang/kotoba-kir.git"
+        io.github.kotoba-lang/osaho
+        {:git/url "https://github.com/kotoba-lang/osaho.git"
          :git/sha "767f2f2fcb6c2c8f9288b24bef24caedb0486333"}}
  :aliases
  {:test {:extra-paths ["test"]
