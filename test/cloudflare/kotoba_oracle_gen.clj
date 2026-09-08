@@ -4,7 +4,7 @@
 (ns cloudflare.kotoba-oracle-gen
   (:require [clojure.java.io :as io]
             [clojure.pprint :as pp]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [kotoba.compiler.core :as compiler])
   (:gen-class))
 

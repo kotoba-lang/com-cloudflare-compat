@@ -18,7 +18,7 @@
   KIR on every platform. Host pure mirrors are gone — cljs/nbb must preload
   shipped KIR before requiring this ns (ADR 0004).
   Handlers/store/clock stay host."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [cloudflare.kotoba.oracle :as oracle]))
 
 (def ^:private oid :compat)
