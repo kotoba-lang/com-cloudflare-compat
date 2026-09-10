@@ -31,7 +31,7 @@ Port scalar cores to `kotoba/compat_core.kotoba`:
 
 ## Evidence
 
-- `test/cloudflare/compat_kotoba_parity_test.clj`
+- `test/cloudflare/compat_kotoba_parity_test.kotoba`
 
 ## Related
 
