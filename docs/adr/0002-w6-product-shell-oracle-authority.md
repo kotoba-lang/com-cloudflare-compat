@@ -27,7 +27,7 @@ load via `cloudflare.kotoba.oracle`, and host-wire pure helpers on the JVM:
 ### Regeneration
 
 ```bash
-clojure -M:oracle-gen
+kbb -M:oracle-gen
 ```
 
 ## Evidence
