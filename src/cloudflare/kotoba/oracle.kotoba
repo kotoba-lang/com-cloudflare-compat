@@ -61,7 +61,7 @@
        (slurp url)
        (throw (ex-info "kotoba oracle KIR resource missing"
                        {:path path
-                        :hint "run: clojure -M:oracle-gen"})))
+                        :hint "run: kbb -M:oracle-gen"})))
      :cljs
      (let [from-loader (when-let [f @resource-loader] (f path))
            from-node (when (nil? from-loader) (node-resource-slurp path))

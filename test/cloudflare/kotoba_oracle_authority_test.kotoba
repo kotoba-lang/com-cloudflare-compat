@@ -70,7 +70,7 @@
         shipped (edn/read-string
                  (slurp (io/resource "cloudflare/oracle/compat_core.kir.edn")))]
     (is (= live shipped)
-        "compat_core KIR drift — run: clojure -M:oracle-gen")))
+        "compat_core KIR drift — run: kbb -M:oracle-gen")))
 
 (deftest gen-compile-kir-roundtrip
   (let [kir (gen/compile-kir "kotoba/compat_core.kotoba")]
